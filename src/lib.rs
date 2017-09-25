@@ -43,6 +43,7 @@ impl From<FileInput> for Input {
 pub struct FileInput {
     path: PathBuf,
     using: Option<String>, // TODO
+    title: Option<String>,
     with: Option<Style>,
 }
 impl FileInput {
@@ -50,11 +51,16 @@ impl FileInput {
         FileInput {
             path: path.as_ref().to_path_buf(),
             using: None,
+            title: None,
             with: None,
         }
     }
     pub fn using(mut self, using: &str) -> Self {
         self.using = Some(using.to_string());
+        self
+    }
+    pub fn title(mut self, title: &str) -> Self {
+        self.title = Some(title.to_string());
         self
     }
     pub fn with(mut self, style: Style) -> Self {
@@ -67,6 +73,9 @@ impl fmt::Display for FileInput {
         write!(f, "{:?}", self.path)?;
         if let Some(ref s) = self.using {
             write!(f, " using {}", s)?;
+        }
+        if let Some(ref s) = self.title {
+            write!(f, " title {:?}", s)?;
         }
         if let Some(ref s) = self.with {
             write!(f, " with {}", s)?;
@@ -156,12 +165,18 @@ mod test {
         let output = track_try_unwrap!(
             Plot::new()
                 .persist()
-                .input(FileInput::new("dataset/prices").using("1:2").with(
-                    Style::Lines,
-                ))
-                .input(FileInput::new("dataset/prices").using("1:3").with(
-                    Style::LinesPoints,
-                ))
+                .input(
+                    FileInput::new("dataset/prices")
+                        .using("1:2")
+                        .title("PQR")
+                        .with(Style::Lines),
+                )
+                .input(
+                    FileInput::new("dataset/prices")
+                        .using("1:3")
+                        .title("XYZ")
+                        .with(Style::LinesPoints),
+                )
                 .show()
         );
         println!("{:?}", output);
