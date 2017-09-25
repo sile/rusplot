@@ -3,6 +3,7 @@ extern crate trackable;
 
 use std::fmt;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use trackable::error::{Failure, Failed};
 
@@ -17,17 +18,76 @@ macro_rules! track_io {
 #[derive(Debug)]
 pub enum Input {
     Raw(String),
+    File(FileInput),
 }
 impl fmt::Display for Input {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Input::Raw(ref s) => write!(f, "{}", s),
+            Input::File(ref i) => write!(f, "{}", i),
         }
     }
 }
 impl<'a> From<&'a str> for Input {
     fn from(f: &'a str) -> Self {
         Input::Raw(f.to_string())
+    }
+}
+impl From<FileInput> for Input {
+    fn from(f: FileInput) -> Self {
+        Input::File(f)
+    }
+}
+
+#[derive(Debug)]
+pub struct FileInput {
+    path: PathBuf,
+    using: Option<String>, // TODO
+    with: Option<Style>,
+}
+impl FileInput {
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+        FileInput {
+            path: path.as_ref().to_path_buf(),
+            using: None,
+            with: None,
+        }
+    }
+    pub fn using(mut self, using: &str) -> Self {
+        self.using = Some(using.to_string());
+        self
+    }
+    pub fn with(mut self, style: Style) -> Self {
+        self.with = Some(style);
+        self
+    }
+}
+impl fmt::Display for FileInput {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.path)?;
+        if let Some(ref s) = self.using {
+            write!(f, " using {}", s)?;
+        }
+        if let Some(ref s) = self.with {
+            write!(f, " with {}", s)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum Style {
+    Points,
+    Lines,
+    LinesPoints,
+}
+impl fmt::Display for Style {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Style::Points => write!(f, "points"),
+            Style::Lines => write!(f, "lines"),
+            Style::LinesPoints => write!(f, "linespoints"),
+        }
     }
 }
 
@@ -60,7 +120,7 @@ impl Plot {
         self
     }
     pub fn show(&self) -> Result<Output> {
-        let mut command = Command::new("gnuplot5");
+        let mut command = Command::new("gnuplot");
         command.args(self.args.clone());
         command.stdin(Stdio::piped());
         let mut child = track_io!(command.spawn())?;
@@ -88,8 +148,26 @@ impl Plot {
 
 #[cfg(test)]
 mod test {
+    #![allow(dead_code)]
     use super::*;
+
     #[test]
+    fn it_works2() {
+        let output = track_try_unwrap!(
+            Plot::new()
+                .persist()
+                .input(FileInput::new("dataset/prices").using("1:2").with(
+                    Style::Lines,
+                ))
+                .input(FileInput::new("dataset/prices").using("1:3").with(
+                    Style::LinesPoints,
+                ))
+                .show()
+        );
+        println!("{:?}", output);
+    }
+
+    // #[test]
     fn it_works() {
         let output = track_try_unwrap!(
             Plot::new()
@@ -101,6 +179,5 @@ mod test {
                 .show()
         );
         println!("{:?}", output);
-        //        panic!();
     }
 }
